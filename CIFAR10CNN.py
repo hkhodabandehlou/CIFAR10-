@@ -1,13 +1,24 @@
+
+from __future__ import print_function
+import os
+
+import datetime
 import keras
+from keras.datasets import mnist
 from keras.models import Sequential
-from keras.layers import Dense, Activation,Dropout,LocallyConnected1D
-from keras.layers.advanced_activations import LeakyReLU, PReLU
-from keras.models import Sequential
-from keras.layers import Dropout, Flatten
-from keras.layers import Conv2D, MaxPooling2D,GaussianNoise,AveragePooling2D,GlobalAveragePooling2D,GlobalMaxPooling2D
+from keras.layers import Dense, Dropout, Activation, Flatten
+from keras.layers import Conv2D, MaxPooling2D,GaussianNoise, Lambda
+from keras import backend as K
+from keras.engine.topology import Layer
 import numpy as np
 import scipy.io as sio
-from keras import backend as K
+from keras.datasets import cifar10
+#from PoolFcn import TracePool as TP
+import tensorflow as tf
+K.set_learning_phase(1) 
+
+
+now = datetime.datetime.now
 
 img_rows,img_cols=32,32
 num_classes=10
@@ -19,49 +30,57 @@ if K.image_data_format() == 'channels_first':
 else:
     input_shape = (img_rows, img_cols, 3)
 print('##########1')
-mat=sio.loadmat('train_feature.mat',squeeze_me=True)
-train_feature=mat['train_feature']
 
-mat=sio.loadmat('train_label.mat',squeeze_me=True)
-train_label=mat['train_label']
-train_label=keras.utils.to_categorical(train_label,num_classes=10)
+(train_feature, train_label), (test_feature, test_label) = cifar10.load_data()
 
-mat=sio.loadmat('test_feature.mat',squeeze_me=True)
-test_feature=mat['test_feature']
-
-mat=sio.loadmat('test_label.mat',squeeze_me=True)
-test_label=mat['test_label']
-test_label=keras.utils.to_categorical(test_label,num_classes=10)
+train_label=keras.utils.to_categorical(train_label,num_classes)
+test_label=keras.utils.to_categorical(test_label,num_classes)
 print('##########2')
 train_features=np.reshape(train_feature,(50000,32,32,3))
 test_features=np.reshape(test_feature,(10000,32,32,3))
 train_features=train_features/255
 test_features=test_features/255
-print('##########3')
 
+print('Define model')
 model=Sequential()
+print('1')
 model.add(Conv2D(16,kernel_size,padding='valid',activation='relu',input_shape=input_shape))
-model.add(Conv2D(32,kernel_size,activation='relu'))
-model.add(MaxPooling2D(pool_size=pool_size))
-model.add(Conv2D(64,kernel_size,activation='selu'))
-model.add(AveragePooling2D(pool_size=pool_size))
-model.add(Conv2D(128,kernel_size,activation='relu'))
-model.add(MaxPooling2D(pool_size=pool_size))
+model.add(MaxPooling2D(pool_size=pool_size,strides=(1,1)))
+model.add(Conv2D(32,kernel_size,padding='valid',activation='relu'))
+model.add(MaxPooling2D(pool_size=pool_size,strides=(1,1)))
+model.add(Conv2D(64,kernel_size,padding='valid',activation='relu'))
+model.add(MaxPooling2D(pool_size=pool_size,strides=(1,1)))
+
+print('3')
 model.add(Flatten())
-model.add(Dense(units=300,activation='relu'))
-model.add(Dropout(0.1))
-model.add(Dense(units=200,activation='selu'))
+print('4')
+
+model.add(Dense(units=100,activation='relu'))
 model.add(Dropout(0.1))
 model.add(Dense(units=100,activation='relu'))
 model.add(Dropout(0.1))
-model.add(GaussianNoise(0.01))
+model.add(Dense(units=100,activation='relu'))
+model.add(Dropout(0.1))
+model.add(Dense(units=100,activation='relu'))
+model.add(Dropout(0.1))
+model.add(Dense(units=100,activation='relu'))
+model.add(Dropout(0.1))
+model.add(Dense(units=100,activation='relu'))
+model.add(Dropout(0.1))
+model.add(Dense(units=100,activation='relu'))
+model.add(Dropout(0.1))
+model.add(Dense(units=100,activation='relu'))
+model.add(Dropout(0.1))
+
 model.add(Dense(units=10,activation='softmax'))
-
-keras.optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
-keras.optimizers.Adamax(lr=0.002, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0)
-
-model.compile(loss='binary_crossentropy',optimizer='adamax',metrics=['accuracy'])
-model.fit(train_features,train_label,epochs=50,batch_size=1000)
-
-score=model.evaluate(test_features,test_label)
+print('5')
+print('Start Compiling')
+keras.optimizers.Adadelta(lr=1.0, rho=0.95, epsilon=None, decay=0.0)
+model.compile(loss='kullback_leibler_divergence',optimizer='adadelta',metrics=['accuracy'])
+print('Done Compiling')
+model.fit(train_features,train_label,epochs=20,batch_size=500)
+print('Done Fitting')
+score=model.evaluate(test_features,test_label,batch_size=100)
+print('Done evaluation')
 print(score)
+
